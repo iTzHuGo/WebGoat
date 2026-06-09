@@ -1,56 +1,54 @@
 pipeline {
     agent any
 
-    // Name of the tool created in Jenkins Tools
+    // Ensure you have defined these matching names in Jenkins -> Manage Jenkins -> Tools
     tools {
-        nodejs 'Node22' 
+        jdk 'Java17'     // WebGoat requires Java 17 or higher
+        maven 'Maven3'   // Standard Maven installation
     }
 
     stages {
         stage('Checkout') {
             steps {
-                // Pull code from Git repository
                 checkout scm
             }
         }
         
-        stage('Build & Install Dependencies') {
+        stage('Build & Compile Application') {
             steps {
-                echo "Building the application using Node 22..."
-                sh 'npm install'
+                echo "Compiling WebGoat with Maven..."
+                // We compile without running tests to establish a clean speed baseline
+                sh 'mvn clean compile -DskipTests'
             }
         }
 
         stage('Security Scanning (SAST)') {
             parallel {
                 
-                // --- Stage 2a: Agnostic Security (Semgrep via Docker) ---
+                // --- Stage 2a: Semgrep SAST ---
                 stage('Semgrep SAST') {
                     steps {
                         echo "Executing Semgrep SAST scan via Docker..."
-                        // We mount the Jenkins workspace into the Semgrep container
+                        // Swapped target ruleset profile to Java
                         sh '''
                         docker run --rm \
                           -v $(pwd):/src \
                           -w /src \
                           returntocorp/semgrep:latest \
-                          semgrep scan --json --output sast-results.json --config="p/javascript" --config="p/owasp-top-ten" --exclude="codeql-db" --exclude="node_modules" --exclude="codeql-results.sarif" --exclude="codeql" .
-                          
+                          semgrep scan --json --output sast-results.json --config="p/java" --config="p/owasp-top-ten" --exclude="codeql-db" --exclude="target" --exclude="codeql-results.sarif" .
                         '''
                     }
                     post {
                         always {
-                            // Save the JSON artifact to the Jenkins UI
                             archiveArtifacts artifacts: 'sast-results.json', allowEmptyArchive: true
                         }
                     }
                 }
 
-                // --- Stage 2b: Proprietary Security (CodeQL CLI - Segmented) ---
+                // --- Stage 2b: CodeQL CLI ---
                 stage('CodeQL SAST') {
                     environment {
-                        // Defined here so it is securely accessible across all sub-stages
-                        CQ_TMP = "/tmp/codeql-thesis-${env.BUILD_NUMBER}"
+                        CQ_TMP = "/tmp/codeql-webgoat-${env.BUILD_NUMBER}"
                     }
                     stages {
                         stage('CodeQL: Download & Setup') {
@@ -66,17 +64,18 @@ pipeline {
 
                         stage('CodeQL: Create DB') {
                             steps {
-                                echo "Creating CodeQL Database..."
-                                // Using explicit path execution for stability across stages
-                                sh '${CQ_TMP}/codeql/codeql database create ${CQ_TMP}/codeql-db --language=javascript-typescript --source-root .'
+                                echo "Creating CodeQL Database (Tracing Compilation)..."
+                                // CRITICAL: We explicitly supply the compile command so CodeQL can trace the build process
+                                sh '${CQ_TMP}/codeql/codeql database create ${CQ_TMP}/codeql-db --language=java --command="mvn clean compile -DskipTests" --source-root .'
                             }
                         }
 
                         stage('CodeQL: Analyze') {
                             steps {
-                                echo "Running CodeQL Analysis (Unleashed!)..."
+                                echo "Running CodeQL Java Analysis..."
+                                // Swapped core query pack to java-security-extended
                                 sh '''
-                                ${CQ_TMP}/codeql/codeql database analyze ${CQ_TMP}/codeql-db javascript-security-extended.qls \
+                                ${CQ_TMP}/codeql/codeql database analyze ${CQ_TMP}/codeql-db java-security-extended.qls \
                                   --format=sarif-latest \
                                   --output=$(pwd)/codeql-results.sarif \
                                   --ram=12000 \
@@ -88,31 +87,27 @@ pipeline {
                     post {
                         always {
                             echo "CodeQL Post-Actions: Saving Artifacts & Running Cleanup..."
-                            // Save the SARIF artifact to the Jenkins UI
                             archiveArtifacts artifacts: 'codeql-results.sarif', allowEmptyArchive: true
-                            // Put the cleanup step in always block to prevent storage leaks if a sub-stage crashes
                             sh 'rm -rf ${CQ_TMP}'
                         }
                     }
                 }
 
-                // --- Stage 2c: SonarQube
+                // --- Stage 2c: SonarQube ---
                 stage('SonarQube SAST') {
                     steps {
-                        echo "Executing SonarQube Analysis..."
-                        
-                        // We MUST use a script block to declare variables in a Declarative Pipeline
+                        echo "Executing SonarQube Java Analysis..."
                         script {
                             def scannerHome = tool 'SonarScanner'
                             
-                            // Wraps the execution using the server credentials
                             withSonarQubeEnv('Sonar-VM') {
+                                // CRITICAL: Java requires sonar.java.binaries to locate compiled classes for semantic analysis
                                 sh "${scannerHome}/bin/sonar-scanner \
-                                    -Dsonar.projectKey=juice-shop-thesis \
-                                    -Dsonar.sources=. \
-                                    -Dsonar.exclusions=**/codeql/**,**/codeql-db/**,**/*.tar.gz,**/node_modules/**,**/sast-results.json,**/codeql-results.sarif \
-                                    -Dsonar.host.url=https://sonarqube.dei.uc.pt \
-                                    -Dsonar.javascript.node.maxspace=3072"
+                                    -Dsonar.projectKey=webgoat-thesis \
+                                    -Dsonar.sources=src/main/java \
+                                    -Dsonar.java.binaries=**/target/classes \
+                                    -Dsonar.exclusions=**/codeql/**,**/codeql-db/**,**/*.tar.gz,**/target/**,**/sast-results.json,**/codeql-results.sarif \
+                                    -Dsonar.host.url=https://sonarqube.dei.uc.pt"
                             }
                         }
                     }
@@ -123,7 +118,7 @@ pipeline {
     
     post {
         always {
-            echo "DevSecOps Pipeline execution complete."
+            echo "WebGoat DevSecOps Pipeline execution complete."
         }
     }
 }
