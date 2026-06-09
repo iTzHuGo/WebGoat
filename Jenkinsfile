@@ -3,7 +3,7 @@ pipeline {
 
     // Ensure you have defined these matching names in Jenkins -> Manage Jenkins -> Tools
     tools {
-        jdk 'Java17'     // WebGoat requires Java 17 or higher
+        jdk 'Java25'     // WebGoat requires Java 17 or higher
         maven 'Maven3'   // Standard Maven installation
     }
 
