@@ -112,6 +112,14 @@ jobs:
         with:
           fetch-depth: 0  # SonarQube requires full git history for blame and metrics
 
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          cache: 'maven'
+
+
       - name: Build and Scan with SonarQube Maven Plugin
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
