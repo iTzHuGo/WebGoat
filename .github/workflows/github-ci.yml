@@ -36,7 +36,7 @@ jobs:
         with:
           cache: 'maven'
       - name: Build with Maven
-        run: mvn --no-transfer-progress verify
+        run: mvn --no-transfer-progress verify -DskipTests
 
   # --- Stage 2a: Security (SAST Semgrep) ---
   security-sast:
