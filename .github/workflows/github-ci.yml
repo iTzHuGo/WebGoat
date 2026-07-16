@@ -59,7 +59,7 @@ jobs:
       - name: Execute Semgrep Scan
         env:
           # Find Security Bugs rules for Java
-          SEMGREP_RULES: "p/find-sec-bugs"
+          SEMGREP_RULES: "p/findsecbugs"
         run: |
           echo "Executing Semgrep SAST scan..."
           semgrep scan --json --output sast-results.json .
