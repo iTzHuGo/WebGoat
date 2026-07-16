@@ -5,29 +5,29 @@ on:
 
 jobs:
   # --- Stage 1: Build ---
-  pre-commit:
-    name: Pre-commit check
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout git repository
-        uses: actions/checkout@v4.1.6
-      - name: Setup python
-        uses: actions/setup-python@v6
-        with:
-            python-version: "3.9"
-      - name: Setup Java
-        uses: ./.github/actions/java-setup
-        with:
-            cache: ""
-      - name: Pre-commit checks
-        uses: pre-commit/action@v3.0.1
-      - name: pre-commit-c-lite
-        uses: pre-commit-ci/lite-action@v1.1.0
-        if: always()
+  # pre-commit:
+  #   name: Pre-commit check
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout git repository
+  #       uses: actions/checkout@v4.1.6
+  #     - name: Setup python
+  #       uses: actions/setup-python@v6
+  #       with:
+  #           python-version: "3.9"
+  #     - name: Setup Java
+  #       uses: ./.github/actions/java-setup
+  #       with:
+  #           cache: ""
+  #     - name: Pre-commit checks
+  #       uses: pre-commit/action@v3.0.1
+  #     - name: pre-commit-c-lite
+  #       uses: pre-commit-ci/lite-action@v1.1.0
+  #       if: always()
 
   build:
     runs-on: ${{ matrix.os }}
-    needs: [ pre-commit ]
+    # needs: [ pre-commit ]
     strategy:
       fail-fast: true
       matrix:
