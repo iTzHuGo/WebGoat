@@ -36,9 +36,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4.1.6
       - name: Set up JDK
-          uses: ./.github/actions/java-setup
-          with:
-            cache: 'maven'
+        uses: ./.github/actions/java-setup
+        with:
+          cache: 'maven'
       - name: Build with Maven
           run: mvn --no-transfer-progress verify
 
