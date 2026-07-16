@@ -5,25 +5,6 @@ on:
 
 jobs:
   # --- Stage 1: Build ---
-  # pre-commit:
-  #   name: Pre-commit check
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Checkout git repository
-  #       uses: actions/checkout@v4.1.6
-  #     - name: Setup python
-  #       uses: actions/setup-python@v6
-  #       with:
-  #           python-version: "3.9"
-  #     - name: Setup Java
-  #       uses: ./.github/actions/java-setup
-  #       with:
-  #           cache: ""
-  #     - name: Pre-commit checks
-  #       uses: pre-commit/action@v3.0.1
-  #     - name: pre-commit-c-lite
-  #       uses: pre-commit-ci/lite-action@v1.1.0
-  #       if: always()
 
   build:
     # runs-on: ${{ matrix.os }}
@@ -85,6 +66,13 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
         with:
@@ -92,6 +80,9 @@ jobs:
           languages: 'java'
           # We use the extended security suite to give CodeQL its best chance
           queries: security-extended 
+
+      - name: Build WebGoat for CodeQL tracing
+        run: mvn clean --no-transfer-progress verify -DskipTests
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3
@@ -121,12 +112,9 @@ jobs:
         with:
           fetch-depth: 0  # SonarQube requires full git history for blame and metrics
 
-      - name: Execute SonarQube Scan
-        uses: SonarSource/sonarqube-scan-action@master
+      - name: Build and Scan with SonarQube Maven Plugin
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-        with:
-          args: >
-            -Dsonar.projectKey=webgoat-thesis
-            -Dsonar.sources=.
+        # We run verify to compile the code, then immediately pipe it to sonar:sonar
+        run: mvn clean --no-transfer-progress verify sonar:sonar -DskipTests -Dsonar.projectKey=webgoat-thesis
