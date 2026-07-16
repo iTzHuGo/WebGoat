@@ -1,0 +1,136 @@
+name: GitHub Actions Pipeline
+
+on: 
+  workflow_dispatch:
+
+jobs:
+  # --- Stage 1: Build ---
+  pre-commit:
+    name: Pre-commit check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout git repository
+        uses: actions/checkout@v4.1.6
+      - name: Setup python
+        uses: actions/setup-python@v6
+        with:
+            python-version: "3.9"
+      - name: Setup Java
+        uses: ./.github/actions/java-setup
+        with:
+            cache: ""
+      - name: Pre-commit checks
+        uses: pre-commit/action@v3.0.1
+      - name: pre-commit-c-lite
+        uses: pre-commit-ci/lite-action@v1.1.0
+        if: always()
+
+  build:
+    runs-on: ${{ matrix.os }}
+    needs: [ pre-commit ]
+    strategy:
+      fail-fast: true
+      matrix:
+          os: [ windows-latest, ubuntu-latest, macos-15-intel ]
+      max-parallel: 1
+    steps:
+      - uses: actions/checkout@v4.1.6
+      - name: Set up JDK
+          uses: ./.github/actions/java-setup
+          with:
+            cache: 'maven'
+      - name: Build with Maven
+          run: mvn --no-transfer-progress verify
+
+  # --- Stage 2a: Security (SAST Semgrep) ---
+  security-sast:
+    name: Semgrep SAST Scan
+    needs: build
+    runs-on: self-hosted
+    
+    # same Docker image as GitLab.
+    container:
+      image: returntocorp/semgrep:latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Execute Semgrep Scan
+        env:
+          # Find Security Bugs rules for Java
+          SEMGREP_RULES: "p/find-sec-bugs"
+        run: |
+          echo "Executing Semgrep SAST scan..."
+          semgrep scan --json --output sast-results.json .
+        # Note: If Semgrep finds vulnerabilities, this step will exit with an error code 
+
+      - name: Upload SAST Artifact
+        # We use 'always()' so the artifact uploads even if the previous step fails the build
+        if: always() 
+        uses: actions/upload-artifact@v4
+        with:
+          name: semgrep-sast-results
+          path: sast-results.json
+          retention-days: 90
+
+  # --- Stage 2b: Native Security (CodeQL) ---
+  security-sast-codeql:
+    name: CodeQL SAST Scan
+    needs: build
+    runs-on: self-hosted
+    # CodeQL requires specific permissions to write to the GitHub Security tab
+    permissions:
+      security-events: write
+      actions: read
+      contents: read
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          # WebGoat uses Java
+          languages: 'java'
+          # We use the extended security suite to give CodeQL its best chance
+          queries: security-extended 
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:java"
+          # This tells CodeQL to output the SARIF file to a specific folder so we can extract it
+          output: codeql-results 
+
+      - name: Upload CodeQL Artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: codeql-sast-results
+          # Uploads the folder containing the javascript.sarif file
+          path: codeql-results
+          retention-days: 90
+
+  # --- Stage 2c: SonarQube ---
+  security-sast-sonarqube:
+    name: SonarQube Enterprise SAST
+    needs: build
+    runs-on: self-hosted
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # SonarQube requires full git history for blame and metrics
+
+      - name: Execute SonarQube Scan
+        uses: SonarSource/sonarqube-scan-action@master
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        with:
+          args: >
+            -Dsonar.projectKey=webgoat-thesis
+            -Dsonar.sources=.
