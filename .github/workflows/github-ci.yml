@@ -124,5 +124,5 @@ jobs:
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-        # We run verify to compile the code, then immediately pipe it to sonar:sonar
-        run: mvn clean --no-transfer-progress verify sonar:sonar -DskipTests -Dsonar.projectKey=webgoat-thesis
+        # We run verify to compile the code, then immediately pipe it to org.sonarsource.scanner.maven:sonar-maven-plugin:sonar
+        run: mvn clean --no-transfer-progress verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -DskipTests -Dsonar.projectKey=webgoat-thesis
