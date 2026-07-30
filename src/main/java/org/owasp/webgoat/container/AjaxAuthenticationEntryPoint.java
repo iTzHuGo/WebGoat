@@ -23,7 +23,12 @@ public class AjaxAuthenticationEntryPoint extends LoginUrlAuthenticationEntryPoi
       AuthenticationException authException)
       throws IOException, ServletException {
     if (request.getHeader("x-requested-with") != null) {
-      response.sendError(401, authException.getMessage());
+      String detailedMessage =
+          "Authentication failed: "
+              + authException.getClass().getName()
+              + ": "
+              + authException.getMessage();
+      response.sendError(401, detailedMessage);
     } else {
       super.commence(request, response, authException);
     }
