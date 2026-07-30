@@ -20,6 +20,10 @@ public class WebWolfRedirect {
   public ModelAndView openWebWolf() {
     var url = applicationContext.getEnvironment().getProperty("webwolf.url");
 
-    return new ModelAndView("redirect:" + url + "/home");
+    if (url != null && !url.isBlank()) {
+      return new ModelAndView("redirect:" + url + "/home");
+    }
+
+    return new ModelAndView("redirect:/home");
   }
 }
