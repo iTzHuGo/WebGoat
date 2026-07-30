@@ -40,7 +40,8 @@ public class WebSecurityConfig {
                         "/plugins/**",
                         "/registration",
                         "/register.mvc",
-                        "/actuator/**")
+                        "/actuator/**",
+                        "/users/**")
                     .permitAll()
                     .anyRequest()
                     .authenticated())
