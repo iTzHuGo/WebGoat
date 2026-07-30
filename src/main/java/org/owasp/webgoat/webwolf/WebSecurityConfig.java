@@ -20,6 +20,9 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.NoOpPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
 /** Security configuration for WebWolf. */
 @Configuration
 @AllArgsConstructor
@@ -27,6 +30,7 @@ import org.springframework.security.web.SecurityFilterChain;
 public class WebSecurityConfig {
 
   private final UserService userDetailsService;
+  private final Map<String, Integer> loginAttempts = new ConcurrentHashMap<>();
 
   @Bean
   public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -53,7 +57,21 @@ public class WebSecurityConfig {
                     .defaultSuccessUrl("/home", true)
                     .usernameParameter("username")
                     .passwordParameter("password")
-                    .permitAll())
+                    .permitAll()
+                    .successHandler((request, response, authentication) -> {
+                      String username = request.getParameter("username");
+                      if (username != null) {
+                        loginAttempts.remove(username);
+                      }
+                      response.sendRedirect("/home");
+                    })
+                    .failureHandler((request, response, exception) -> {
+                      String username = request.getParameter("username");
+                      if (username != null) {
+                        loginAttempts.merge(username, 1, Integer::sum);
+                      }
+                      response.sendRedirect("/login?error=true");
+                    }))
         .oauth2Login(
             oidc -> {
               oidc.defaultSuccessUrl("/home");
