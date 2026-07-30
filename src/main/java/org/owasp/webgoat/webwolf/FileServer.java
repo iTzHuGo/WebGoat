@@ -16,6 +16,7 @@ import java.nio.file.attribute.FileTime;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Map;
 import java.util.TimeZone;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
@@ -60,6 +61,17 @@ public class FileServer {
   @ResponseBody
   public String getFileLocation() {
     return fileLocation;
+  }
+
+  @GetMapping(value = "/file-server-info", produces = MediaType.APPLICATION_JSON_VALUE)
+  @ResponseBody
+  public Map<String, Object> getFileServerInfo() {
+    return Map.of(
+        "server", server,
+        "port", port,
+        "contextPath", contextPath,
+        "fileLocation", fileLocation,
+        "internalUploadRoot", new File(fileLocation).getAbsolutePath());
   }
 
   @PostMapping(value = "/fileupload")
