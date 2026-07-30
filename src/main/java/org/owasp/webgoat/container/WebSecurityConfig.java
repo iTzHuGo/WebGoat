@@ -29,6 +29,47 @@ public class WebSecurityConfig {
 
   @Bean
   public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    String securityMode = System.getProperty("webgoat.security.mode", "hardened").trim();
+    boolean insecureMode = "insecure".equalsIgnoreCase(securityMode);
+
+    if (insecureMode) {
+      return http.authorizeHttpRequests(
+              auth ->
+                  auth.requestMatchers(
+                          "/favicon.ico",
+                          "/css/**",
+                          "/images/**",
+                          "/js/**",
+                          "/fonts/**",
+                          "/plugins/**",
+                          "/registration",
+                          "/register.mvc",
+                          "/actuator/**")
+                      .permitAll()
+                      .anyRequest()
+                      .permitAll())
+          .formLogin(
+              login ->
+                  login
+                      .loginPage("/login")
+                      .defaultSuccessUrl("/welcome.mvc", true)
+                      .usernameParameter("username")
+                      .passwordParameter("password")
+                      .permitAll())
+          .oauth2Login(
+              oidc -> {
+                oidc.defaultSuccessUrl("/login-oauth.mvc");
+                oidc.loginPage("/login");
+              })
+          .logout(logout -> logout.deleteCookies("JSESSIONID").invalidateHttpSession(true))
+          .csrf(csrf -> csrf.disable())
+          .headers(headers -> headers.disable())
+          .exceptionHandling(
+              handling ->
+                  handling.authenticationEntryPoint(new AjaxAuthenticationEntryPoint("/login")))
+          .build();
+    }
+
     return http.authorizeHttpRequests(
             auth ->
                 auth.requestMatchers(
