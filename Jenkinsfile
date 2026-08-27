@@ -96,19 +96,13 @@ pipeline {
                 // --- Stage 2c: SonarQube ---
                 stage('SonarQube SAST') {
                     steps {
-                        echo "Executing SonarQube Java Analysis..."
-                        script {
-                            def scannerHome = tool 'SonarScanner'
-                            
-                            withSonarQubeEnv('Sonar-VM') {
-                                // CRITICAL: Java requires sonar.java.binaries to locate compiled classes for semantic analysis
-                                sh "${scannerHome}/bin/sonar-scanner \
-                                    -Dsonar.projectKey=webgoat-thesis \
-                                    -Dsonar.sources=src/main/java \
-                                    -Dsonar.java.binaries=**/target/classes \
-                                    -Dsonar.exclusions=**/codeql/**,**/codeql-db/**,**/*.tar.gz,**/target/**,**/sast-results.json,**/codeql-results.sarif \
-                                    -Dsonar.host.url=https://sonarqube.dei.uc.pt"
-                            }
+                        echo "Executing SonarQube Java Analysis via Maven..."
+                        withSonarQubeEnv('Sonar-VM') {
+                            sh '''
+                                mvn clean verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
+                                    -DskipTests \
+                                    -Dsonar.projectKey=webgoat-thesis
+                            '''
                         }
                     }
                 }
