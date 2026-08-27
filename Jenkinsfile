@@ -99,7 +99,7 @@ pipeline {
                         echo "Executing SonarQube Java Analysis via Maven..."
                         withSonarQubeEnv('Sonar-VM') {
                             sh '''
-                                mvn clean verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
+                                mvn clean test-compile org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
                                     -DskipTests \
                                     -Dsonar.projectKey=webgoat-thesis
                             '''
